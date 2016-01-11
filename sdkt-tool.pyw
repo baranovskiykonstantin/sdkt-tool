@@ -89,6 +89,10 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(self.measurement, QtCore.SIGNAL('finished()'), self.on_measurement_finished)
         self.connect(self.measurement, QtCore.SIGNAL('error(QString, QString)'), self.on_measurement_error)
 
+        self.periodical_mesurement = QtCore.QTimer(self)
+        self.periodical_mesurement.setInterval(1000)
+        self.connect(self.periodical_mesurement, QtCore.SIGNAL('timeout()'), self.on_periodical_measurement)
+
     def calculate_error(self, top, child):
         """
         Calculate error between ref and measured values.
@@ -221,6 +225,9 @@ class MainWindow(QtGui.QMainWindow):
                     sdkt_device.setControlMsg(1, 2)
                     wait()
                     self.addr_is_set = True
+                    self.addr_to_treeitem = {}
+                    self.addr_to_treeitem[sensor_addr] = (top, self.treewidget.topLevelItem(top).indexOfChild(item))
+                    self.periodical_mesurement.start()
                 except Exception, error:
                     self.addr_is_set = False
                     QtGui.QMessageBox.critical(
@@ -237,6 +244,7 @@ class MainWindow(QtGui.QMainWindow):
         """
         if self.addr_is_set:
             self.addr_is_set = False
+            self.periodical_mesurement.stop()
             try:
                 sdkt_device = USBDeviceCustom()
                 if sdkt_device.find():
@@ -488,6 +496,70 @@ class MainWindow(QtGui.QMainWindow):
 
         """
         QtGui.QMessageBox.critical(self, title, message)
+
+    def on_periodical_measurement(self):
+        """
+        Periodical measurement the addr of the double clicked item.
+
+        """
+        def wait():
+            """
+            Wait untill the command is executed.
+
+            """
+            for i in range(10):
+                time.sleep(0.1)
+                if sdkt_device.getControlMsg(1) == 0:
+                    return
+            else:
+                QtGui.QMessageBox.critical(
+                        self,
+                        u"SDKT device",
+                        u"Устройство не отвечает!\n" \
+                        u"Превышено время ожидания ответа."
+                        )
+                sdkt_device.close()
+                self.periodical_mesurement.stop()
+                return
+
+        try:
+            sdkt_device = USBDeviceCustom()
+            if sdkt_device.find():
+                sdkt_device.open()
+            else:
+                QtGui.QMessageBox.critical(
+                        self,
+                        u"SDKT device",
+                        u"Устройство не подключено или неисправно!"
+                        )
+                self.periodical_mesurement.stop()
+                return
+            # Measure the freaquency
+            sdkt_device.setControlMsg(1, 3)
+            wait()
+            value = sdkt_device.getControlMsg(3)
+            if value in (0x0000, 0xFFFF):
+                value = 0
+            addr = self.addr_to_treeitem.keys()[0]
+            top, child = self.addr_to_treeitem[addr]
+            resistance = '0'
+            frequency = ''
+            if value:
+                resistance = 536945.93 / float(value) # 537076.8
+                resistance = self.float_to_str(resistance)
+                frequency = 1000000 / ((float(value) - 8) * 0.083333)
+                frequency = u'f = {} Гц'.format(self.float_to_str(frequency))
+            self.treewidget.topLevelItem(top).child(child).setText(2, resistance)
+            self.treewidget.topLevelItem(top).child(child).setToolTip(2, frequency)
+            self.calculate_error(top, child)
+        except Exception, error:
+            self.addr_is_set = False
+            self.periodical_mesurement.stop()
+            QtGui.QMessageBox.critical(
+                    self,
+                    u"SDKT device",
+                    str(error)
+                    )
 
     def closeEvent(self, event):
         """

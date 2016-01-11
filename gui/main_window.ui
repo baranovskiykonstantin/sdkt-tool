@@ -8438,8 +8438,6 @@ QGroupBox::title {
     <property name="title">
      <string>&amp;Справка</string>
     </property>
-    <addaction name="action_help"/>
-    <addaction name="separator"/>
     <addaction name="action_about"/>
    </widget>
    <widget class="QMenu" name="menu_edit">
@@ -8489,17 +8487,12 @@ QGroupBox::title {
     <string>F2</string>
    </property>
   </action>
-  <action name="action_help">
-   <property name="text">
-    <string>&amp;Руководство пользователя...</string>
-   </property>
-   <property name="shortcut">
-    <string>F1</string>
-   </property>
-  </action>
   <action name="action_about">
    <property name="text">
     <string>&amp;О программе...</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
    </property>
   </action>
   <action name="action_check_all">
